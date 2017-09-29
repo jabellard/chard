@@ -1,41 +1,65 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include<fcntl.h>
 #include<string.h>
 #include<unistd.h>
 
-#define BUFFER_LENGTH 256               ///< The buffer length (crude but fine)
-static char receive[BUFFER_LENGTH];     ///< The receive buffer from the LKM
 
-int main(){
-   int ret, fd;
-   char stringToSend[BUFFER_LENGTH];
-   printf("Starting device test code example...\n");
-   fd = open("/dev/chard0", O_RDWR);             // Open the device with read/write access
-   if (fd < 0){
-      perror("Failed to open the device...");
-      return errno;
-   }
-   printf("Type in a short string to send to the kernel module:\n");
-   scanf("%[^\n]%*c", stringToSend);                // Read in a string (with spaces)
-   printf("Writing message to the device [%s].\n", stringToSend);
-   ret = write(fd, stringToSend, strlen(stringToSend)); // Send the string to the LKM
-   if (ret < 0){
-      perror("Failed to write the message to the device.");
-      return errno;
-   }
 
-   printf("Press ENTER to read back from the device...\n");
-   getchar();
+// aaaaaaaaaa
+// bbbbbbbbbb
+// cccccccccc
 
-   printf("Reading from the device...\n");
-   ret = read(fd, receive, BUFFER_LENGTH);        // Read the response from the LKM
-   if (ret < 0){
-      perror("Failed to read the message from the device.");
-      return errno;
-   }
-   printf("The received message is: [%s]\n", receive);
-   printf("End of the program\n");
-   return 0;
+int main()
+{
+
+	const int len = 256;
+char buf1[len];
+char buf2[len];
+
+  int fd;
+  int ret;
+  
+  fd = open("/dev/chard0", O_RDWR);
+  if (fd == -1)
+  {
+  	perror("open");
+  } // end if
+  
+  strcpy(buf2, "aaaaaaaaaa");
+  printf("the buffer: %s\n", buf2);
+  ret = write(fd, buf2, strlen(buf2));
+  printf("ret = %d\n", ret);
+  
+  if (ret == -1)
+  {
+  	perror("99rite1");
+  } // end if
+  
+   strcpy(buf2, "bbbbbbbbbb");
+  
+  ret = write(fd, buf2, strlen(buf2));
+    printf("ret = %d\n", ret);
+  if (ret == -1)
+  {
+  	perror("99rite2");
+  } // end if
+  
+    strcpy(buf2, "cccccccccc");
+  
+  ret = write(fd, buf2, strlen(buf2));
+    printf("ret = %d\n", ret);
+  if (ret == -1)
+  {
+  	perror("99rite3");
+  } // end if
+  
+  return 0;
+  
 }
+
+ 
+
