@@ -36,8 +36,6 @@ static int memory_region_size = 256;
 // the device 
 static chardev *dev0;
 
-// offset
-int off= 0;
 
 static int __init chard_init(void)
 {
@@ -113,6 +111,11 @@ static chardev * create_chardev(void)
 	// set the size of the memory region
 	dev->memory_region_size = memory_region_size;
 	
+	// set the initial reading position
+	dev->read_pos = 0;
+	
+	// set the intial write positon
+	dev->write_pos = 0;
 	// allocate the memory region
 	dev->memory_region = kmalloc(dev->memory_region_size, GFP_KERNEL);
 	if (!dev->memory_region)
@@ -180,7 +183,8 @@ static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *
 	chardev *dev = dev0;
 	
 	// determine region of memory to be read
-	loff_t start = *offset;
+	printk(KERN_INFO "Br %ld\n", dev->read_pos);	
+	unsigned long start = dev->read_pos;
 	if (start > dev->memory_region_size)
 	{
 		//  err
@@ -194,6 +198,8 @@ static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *
 	} // end if
 	
 	copy_to_user(buffer, &(dev->memory_region[start]), end - start);
+	dev->read_pos += end - start;
+	printk(KERN_INFO "Ar %ld\n", dev->read_pos);
 	return (end - start);
 	
 	
@@ -207,7 +213,8 @@ static ssize_t chard_write(struct file *filep, const char *buffer, size_t len, l
 	chardev *dev = dev0;
 	
 	// determine region of memory to be read
-	loff_t start = *offset;
+	printk(KERN_INFO "Bw %ld\n", dev->write_pos);
+	unsigned long start = dev->write_pos;
 	if (start > dev->memory_region_size)
 	{
 		//  err
@@ -221,6 +228,8 @@ static ssize_t chard_write(struct file *filep, const char *buffer, size_t len, l
 	} // end if
 	
 	copy_from_user(&(dev->memory_region[start]), buffer, end - start);
+	dev->write_pos += end - start;
+	printk(KERN_INFO "Aw %ld\n", dev->write_pos);
 	return (end - start);
 } // end chard_write()
 

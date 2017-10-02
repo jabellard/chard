@@ -9,6 +9,8 @@ typedef struct _chardev
 {
 	char *memory_region;
 	unsigned long memory_region_size;
+	unsigned long read_pos;
+	unsigned long write_pos;
 	struct semaphore sem;
 	struct cdev *dev;
 }chardev; // end struct _chard
