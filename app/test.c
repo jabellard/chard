@@ -48,7 +48,7 @@ char buf2[len];
   	perror("99rite2");
   } // end if
   
-    strcpy(buf2, "cccccccccc");
+    strcpy(buf2, "ccccccccccd");
   
   ret = write(fd, buf2, strlen(buf2));
     printf("ret = %d\n", ret);
@@ -56,6 +56,17 @@ char buf2[len];
   {
   	perror("99rite3");
   } // end if
+  
+  int count = 20;
+  ret = read(fd, buf1, count);
+  printf("ret-read = %d\n", ret);
+  if (ret == -1)
+  {
+  	perror("read");
+  } // end if
+  
+  buf1[count] = '\0';
+  printf("read this: %s\n", buf1);
   
   return 0;
   

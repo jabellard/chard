@@ -17,7 +17,7 @@ MODULE_VERSION("1.2");
 
 
 
-// list of file operations for the driver
+// list of operations supported by driver
 static struct file_operations fops =
 {
 	.owner = THIS_MODULE,
@@ -29,11 +29,15 @@ static struct file_operations fops =
 
 // the driver's major number
 static int major_number;
+
+// the size of the memory region
 static int memory_region_size = 256;
 
-// the device
+// the device 
 static chardev *dev0;
 
+// offset
+int off= 0;
 
 static int __init chard_init(void)
 {
@@ -42,41 +46,58 @@ static int __init chard_init(void)
 	devno = 0;
 	
 	// dynamically allocate device numbers (1 major, 1+ minor)
+	printk(KERN_INFO "chard: Allocating device numbers...\n");
 	result = alloc_chrdev_region(&devno, 0, 1, "chard");
 	if (result < 0)
 	{
+		printk(KERN_WARNING "chard: Failed to allocating device numbers.\n");
 		return result;
 	} // end if
 	
+	printk(KERN_INFO "chard: Successfully allocating device numbers.\n");
 	// store the major number
 	major_number = MAJOR(devno);
 	
 	
 	// create a chardev object
+	printk(KERN_INFO "chard: Creating chardev object...\n");
 	dev0 = create_chardev();
 	if (!dev0)
 	{
+		printk(KERN_WARNING "chard: Failed to create chardev object.\n");
 		goto unreg1;
-	}
+	} // end if
+	
+	printk(KERN_INFO "chard: Successfully created chardev object.\n");
+	
 	
 	// initialize the chardev char dev object
+	printk(KERN_INFO "chard: Initializing  character device...\n");
 	cdev_init((dev0->dev), &fops);
 	
 	// assign the char device to this module
 	dev0->dev->owner = THIS_MODULE;
 	
+	printk(KERN_INFO "chard: Successfully initialized character device.\n");
+	
 	// add the device to the system
+	printk(KERN_INFO "chard: Adding character device to the system...\n");
 	result = cdev_add((dev0->dev), devno, 1);
 	if (result < 0)
 	{
+		printk(KERN_WARNING "chard: Failed to add character device to the system.\n");
 		goto unreg2;
 	} // end if	
-	
+	printk(KERN_INFO "chard: Successfully added character device to the system.\n");	
 	return 0;
 	unreg2:
+		printk(KERN_INFO "chard: Destroying allocated chardev object...\n");
 		destroy_chardev(dev0);
+		printk(KERN_INFO "chard: Done.\n");
 	unreg1:
+		printk(KERN_INFO "chard: Unregistering device numbers...\n");
 		unregister_chrdev_region(devno, 1);
+		printk(KERN_INFO "chard: Done.\n");
 		return result;
 } // end chard_init()
 
@@ -123,9 +144,18 @@ static void __exit chard_exit(void)
 {
 
 	dev_t devno = MKDEV(major_number, 0);
+	
+	printk(KERN_INFO "chard: Removing character device from the system.\n");
 	cdev_del((dev0->dev));
+	printk(KERN_INFO "chard: Done.\n");
+	
+	printk(KERN_INFO "chard: Destroying allocated chardev object...\n");
 	destroy_chardev(dev0);
+	printk(KERN_INFO "chard: Done.\n");
+	
+	printk(KERN_INFO "chard: Unregistering device numbers...\n");
 	unregister_chrdev_region(devno, 1);
+	printk(KERN_INFO "chard: Done.\n");
 } // end chard_exit()
 
 
@@ -135,7 +165,8 @@ static int chard_open(struct inode *inodep, struct file *filep)
 {
 	
 	// obtain the device object associated with this char device
-	chardev *dev = container_of(inodep->i_cdev, chardev, dev);
+	//chardev *dev = container_of(inodep->i_cdev, chardev, dev);
+	chardev *dev = dev0;
 	filep->private_data = dev;
 	
 	return 0;
@@ -145,10 +176,11 @@ static int chard_open(struct inode *inodep, struct file *filep)
 static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
 	// obatain the coresponding char device object
-	chardev *dev = filep->private_data;
+	//chardev *dev = filep->private_data;
+	chardev *dev = dev0;
 	
 	// determine region of memory to be read
-	int start = offset;
+	loff_t start = *offset;
 	if (start > dev->memory_region_size)
 	{
 		//  err
@@ -171,10 +203,11 @@ static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *
 static ssize_t chard_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
 	// obatain the coresponding char device object
-	chardev *dev = filep->private_data;
+	//chardev *dev = filep->private_data;
+	chardev *dev = dev0;
 	
 	// determine region of memory to be read
-	int start = offset;
+	loff_t start = *offset;
 	if (start > dev->memory_region_size)
 	{
 		//  err

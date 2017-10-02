@@ -4,6 +4,7 @@
 #include <linux/cdev.h>
 
 
+// charcter device object
 typedef struct _chardev
 {
 	char *memory_region;
@@ -13,7 +14,7 @@ typedef struct _chardev
 }chardev; // end struct _chard
 
 
-// function prototypes------------------
+// function prototypes------------------------------------------------------
 static int chard_open(struct inode *inodep, struct file *filep);
 static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *offset);
 static ssize_t chard_write(struct file *filep, const char *buffer, size_t len, loff_t *offset);
