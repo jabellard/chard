@@ -8,6 +8,7 @@
 #include <asm/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/slab.h>
+#include <linux/errno.h>
 #include "chard.h"
 
 MODULE_DESCRIPTION("chard: character device.");
@@ -24,6 +25,7 @@ static struct file_operations fops =
 	.open = chard_open,
 	.read = chard_read,
 	.write = chard_write,
+	.unlocked_ioctl = chard_ioctl,
 	.release = chard_release
 }; // end struct fops
 
@@ -42,7 +44,8 @@ static int __init chard_init(void)
 	int result;
 	dev_t devno;
 	devno = 0;
-	
+	printk(KERN_INFO "CHARD_IOC_SRPOS = %ld.\n", CHARD_IOC_SRPOS);
+	printk(KERN_INFO "CHARD_IOC_GRPOS = %ld.\n", CHARD_IOC_GRPOS);
 	// dynamically allocate device numbers (1 major, 1+ minor)
 	printk(KERN_INFO "chard: Allocating device numbers...\n");
 	result = alloc_chrdev_region(&devno, 0, 1, "chard");
@@ -179,12 +182,11 @@ static int chard_open(struct inode *inodep, struct file *filep)
 static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
 	// obatain the coresponding char device object
-	//chardev *dev = filep->private_data;
-	chardev *dev = dev0;
+	chardev *dev = filep->private_data;
+	//chardev *dev = dev0;
 	
 	// determine region of memory to be read
-	printk(KERN_INFO "Br %ld\n", dev->read_pos);	
-	unsigned long start = dev->read_pos;
+	int start = dev->read_pos;
 	if (start > dev->memory_region_size)
 	{
 		//  err
@@ -199,7 +201,6 @@ static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *
 	
 	copy_to_user(buffer, &(dev->memory_region[start]), end - start);
 	dev->read_pos += end - start;
-	printk(KERN_INFO "Ar %ld\n", dev->read_pos);
 	return (end - start);
 	
 	
@@ -209,12 +210,11 @@ static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *
 static ssize_t chard_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
 	// obatain the coresponding char device object
-	//chardev *dev = filep->private_data;
-	chardev *dev = dev0;
+	chardev *dev = filep->private_data;
+	//chardev *dev = dev0;
 	
 	// determine region of memory to be read
-	printk(KERN_INFO "Bw %ld\n", dev->write_pos);
-	unsigned long start = dev->write_pos;
+	int start = dev->write_pos;
 	if (start > dev->memory_region_size)
 	{
 		//  err
@@ -229,9 +229,86 @@ static ssize_t chard_write(struct file *filep, const char *buffer, size_t len, l
 	
 	copy_from_user(&(dev->memory_region[start]), buffer, end - start);
 	dev->write_pos += end - start;
-	printk(KERN_INFO "Aw %ld\n", dev->write_pos);
 	return (end - start);
 } // end chard_write()
+
+static long chard_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
+{
+	int retval = 0;
+	int err = 0;
+	int tmp;
+	chardev *dev = filep->private_data;
+	//chardev *dev = dev0;
+	
+	if (_IOC_TYPE(cmd) != CHARD_IOC_MAGIC)
+	{
+		return -ENOTTY;
+	} // end if
+	
+	if (_IOC_NR(cmd) > CHARD_IO_MAXNR || _IOC_NR(cmd) < 0)
+	{
+	 	return -ENOTTY;
+	} // end if
+	
+	if (_IOC_DIR(cmd) & _IOC_READ)
+	{
+		err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
+	} // end if
+	else if (_IOC_DIR(cmd) & _IOC_WRITE)
+	{
+		err = !access_ok(VERIFY_READ, (void __user *)arg, _IOC_SIZE(cmd));
+	} // end else if
+	
+	if (err)
+	{
+		return -EFAULT;
+	} // end if
+	switch (cmd)
+	{
+		case CHARD_IOC_SRPOS:
+		//int t = arg;
+		if (arg < 0 || arg > dev->memory_region_size)
+		{
+			return -EINVAL;
+		} // end if
+		dev->read_pos = (int) arg;
+		break;
+		
+		case CHARD_IOC_GRPOS:
+		retval = __put_user(dev->read_pos, (int __user *)arg);
+		break;
+		
+		case CHARD_IOC_SWPOS:
+		if (arg < 0 || arg > dev->memory_region_size)
+		{
+			return -EINVAL;
+		} // end if
+		dev->write_pos = (int) arg;		
+		break;
+		
+		case CHARD_IOC_GWPOS:
+		retval = __put_user(dev->write_pos, (int __user *)arg);
+		break;
+		
+		case CHARD_IOC_SSIZE:
+		// mem alloc
+		//dev->memory_region_size = arg;
+		break;
+		
+		case CHARD_IOC_RESETSIZE:
+		// mem alloc
+		//dev->memory_region_size = memory_region_size;
+		break;
+		
+		case CHARD_IOC_GSIZE:
+		retval = __put_user(dev->memory_region_size, (int __user *)arg);
+		break;
+				
+		default:
+			return -ENOTTY;
+	} // end switch
+	return retval;
+} // end chard_ioctl()
 
 
 static int chard_release(struct inode *inodep, struct file *filep)

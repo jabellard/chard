@@ -6,6 +6,8 @@
 #include<fcntl.h>
 #include<string.h>
 #include<unistd.h>
+#include <sys/ioctl.h>
+//#include "../drv/chard.h"
 
 
 
@@ -80,6 +82,23 @@ char buf2[len];
   buf1[count] = '\0';
   printf("read this: %s\n", buf1);
    printf("-----------------------------\n");
+ 
+    int a = 12;
+    ret = -77;
+   ret = ioctl(fd, 1074031360, a);
+   printf("return value = %d.\n", ret);
+   
+      int  b = 0;
+      ret = -88;
+   ret = ioctl(fd, 2147773185, &b);
+   printf("return value = %d.\n", ret);
+printf("recieved value = %d.\n", b);
+ 
+ 
+
+   
+   
+   
   return 0;
   
 }
