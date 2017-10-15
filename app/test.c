@@ -31,6 +31,10 @@ char buf2[len];
   	perror("open");
   } // end if
   
+  int user_input;
+  printf("Enter any integer and press enter to proceed: ");
+  scanf("%d", &user_input);
+  
   strcpy(buf2, "aaaaaaaaaa");
   printf("the buffer: %s\n", buf2);
   ret = write(fd, buf2, strlen(buf2));

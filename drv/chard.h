@@ -11,7 +11,7 @@ typedef struct _chardev
 	int memory_region_size;
 	int read_pos;
 	int write_pos;
-	struct semaphore sem;
+	struct mutex dmutex;
 	struct cdev *dev;
 }chardev; // end struct _chard
 
