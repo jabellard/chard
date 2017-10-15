@@ -12,6 +12,8 @@
 #include <linux/mutex.h>
 #include "chard.h"
 
+// slab cache pointer for the chard cache
+static struct kmem_cache *chardev_cachep;
 
 // list of operations supported by driver
 static struct file_operations fops =
@@ -36,8 +38,8 @@ static chardev *dev0;
 
 static chardev * create_chardev(void)
 {
-	// allocate space for chardev object
-	chardev *dev = kmalloc(sizeof(chardev), GFP_KERNEL);
+	// allocate space for a chardev object from the chardev slab cache
+	chardev *dev = kmem_cache_alloc(chardev_cachep, GFP_KERNEL);
 	if (!dev)
 	{
 		return NULL;
@@ -51,6 +53,7 @@ static chardev * create_chardev(void)
 	
 	// set the intial write positon
 	dev->write_pos = 0;
+	
 	// allocate the memory region
 	dev->memory_region = kmalloc(dev->memory_region_size, GFP_KERNEL);
 	if (!dev->memory_region)
@@ -74,7 +77,7 @@ static void destroy_chardev(chardev *dev)
 {
 	kfree(dev->memory_region);
 	kfree(dev->dev);
-	kfree(dev);
+	kmem_cache_free(chardev_cachep, dev);
 	
 } // end destroy_chardev()
 
@@ -108,7 +111,7 @@ static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *
 	if (start > dev->memory_region_size)
 	{
 		//  err
-		return -1;
+		return -EINVAL;
 	} // end if
 	int end = start + len;
 	
@@ -119,9 +122,7 @@ static ssize_t chard_read(struct file *filep, char *buffer, size_t len, loff_t *
 	
 	copy_to_user(buffer, &(dev->memory_region[start]), end - start);
 	dev->read_pos += end - start;
-	return (end - start);
-	
-	
+	return (end - start);	
 } // end chard_read()
 
 
@@ -136,7 +137,7 @@ static ssize_t chard_write(struct file *filep, const char *buffer, size_t len, l
 	if (start > dev->memory_region_size)
 	{
 		//  err
-		return -1;
+		return -EINVAL;
 	} // end if
 	int end = start + len;
 	
@@ -244,15 +245,28 @@ static int __init chard_init(void)
 	int result;
 	dev_t devno;
 	devno = 0;
-	printk(KERN_INFO "CHARD_IOC_SRPOS = %ld.\n", CHARD_IOC_SRPOS);
-	printk(KERN_INFO "CHARD_IOC_GRPOS = %ld.\n", CHARD_IOC_GRPOS);
+	
+	//printk(KERN_INFO "CHARD_IOC_SRPOS = %ld.\n", CHARD_IOC_SRPOS);
+	//printk(KERN_INFO "CHARD_IOC_GRPOS = %ld.\n", CHARD_IOC_GRPOS);
+	
+	// crate a slab cache for chardev objects
+	chardev_cachep = kmem_cache_create("chardev", sizeof(chardev), 0, 0, NULL);
+	if (!chardev_cachep)
+	{
+		printk(KERN_INFO "chard : Failed to create slab cache.\n");
+		return -1;
+		
+	} // end if
+	
+	printk(KERN_INFO "chard: Successfully created slab cache for chardev objects.\n");
+	
 	// dynamically allocate device numbers (1 major, 1+ minor)
 	printk(KERN_INFO "chard: Allocating device numbers...\n");
 	result = alloc_chrdev_region(&devno, 0, 1, "chard");
 	if (result < 0)
 	{
 		printk(KERN_WARNING "chard: Failed to allocating device numbers.\n");
-		return result;
+		goto unreg0;
 	} // end if
 	
 	printk(KERN_INFO "chard: Successfully allocating device numbers.\n");
@@ -299,6 +313,10 @@ static int __init chard_init(void)
 		printk(KERN_INFO "chard: Unregistering device numbers...\n");
 		unregister_chrdev_region(devno, 1);
 		printk(KERN_INFO "chard: Done.\n");
+	unreg0:
+		printk(KERN_INFO "chard: Destroying chardev slab cache...\n");
+		kmem_cache_destroy(chardev_cachep);
+		printk(KERN_INFO "chard: Done.\n");
 		return result;
 } // end chard_init()
 
@@ -318,6 +336,10 @@ static void __exit chard_exit(void)
 	printk(KERN_INFO "chard: Unregistering device numbers...\n");
 	unregister_chrdev_region(devno, 1);
 	printk(KERN_INFO "chard: Done.\n");
+	
+	printk(KERN_INFO "chard: Destroying chardev slab cache...\n");
+	kmem_cache_destroy(chardev_cachep);
+	printk(KERN_INFO "chard: Done.\n");
 } // end chard_exit()
 
 module_init(chard_init);
@@ -326,4 +348,4 @@ module_exit(chard_exit);
 MODULE_DESCRIPTION("chard: character device.");
 MODULE_AUTHOR("Joe Nathan Abellard");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.3");
+MODULE_VERSION("1.4");
